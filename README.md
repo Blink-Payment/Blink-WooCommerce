@@ -43,7 +43,7 @@ Manual installation
 
 3. Go to WooCommerce -> Settings and click on the Checkout tab. 
 
-4. Find PaymentNetwork in the Payment Gateways section 
+4. Find Blink in the Payment Gateways section 
 
 5. Click the settings button to configure and enable the gateway.
 
