@@ -1,46 +1,46 @@
 <?php
 /*
-Plugin Name: PaymentNetwork
-Description: Provides the PaymentNetwork Payment Gateway for WooCommerce
+Plugin Name: Blink-WooCommerce
+Description: Provides the Blink Payment Gateway for WooCommerce
 */
 
 /**
- * Initialise WC Payment Network Gateway
+ * Initialise WC Blink Gateway
  **/
-add_action('plugins_loaded', 'init_wc_payment_network', 0);
+add_action('plugins_loaded', 'init_wc_blink_payment', 0);
 
 /**
- * Initialise WC PaymentNetwork Gateway
+ * Initialise WC Blink Gateway
  **/
 if(function_exists('setup_module_database_tables')) {
     register_activation_hook( __FILE__, 'setup_module_database_tables' );
 }
 
 /**
- * Delete PaymentNetwork Gateway
+ * Delete Blink Gateway
  **/
 if(function_exists('delete_plugin_database_table')) {
     register_uninstall_hook(__FILE__, 'delete_plugin_database_table');
 }
 
 
-function init_wc_payment_network() {
+function init_wc_blink_payment() {
 
     if (!class_exists('WC_Payment_Gateway')) {
         return;
     }
 
-    add_filter('plugin_action_links', 'add_wc_payment_network_action_plugin', 10, 5);
+    add_filter('plugin_action_links', 'add_wc_blink_payment_action_plugin', 10, 5);
 
-    include('includes/class-wc-payment-network.php');
+    include('includes/class-wc-blink-payment.php');
 
     require_once __DIR__.'/vendor/autoload.php';
 
-    add_filter('woocommerce_payment_gateways', 'add_payment_network_payment_gateway' );
+    add_filter('woocommerce_payment_gateways', 'add_blink_payment_payment_gateway' );
 
 }
 
-function add_wc_payment_network_action_plugin($actions, $plugin_file)
+function add_wc_blink_payment_action_plugin($actions, $plugin_file)
 {
     static $plugin;
 
@@ -61,14 +61,14 @@ function add_wc_payment_network_action_plugin($actions, $plugin_file)
     return $actions;
 }
 
-function add_payment_network_payment_gateway($methods) {
-    $methods[] = 'WC_Payment_Network';
+function add_blink_payment_payment_gateway($methods) {
+    $methods[] = 'WC_blink_payment';
     return $methods;
 }
 
 
 function setup_module_database_tables() {
-    $module_prefix = 'payment_network_';
+    $module_prefix = 'blink_payment_';
     global $wpdb;
     global $jal_db_version;
 
@@ -96,7 +96,7 @@ function setup_module_database_tables() {
 }
 
 function delete_plugin_database_table() {
-    $module_prefix = 'payment_network_';
+    $module_prefix = 'blink_payment_';
     global $wpdb;
     $wpdb->show_errors();
     $table_name = $wpdb->prefix . 'woocommerce_' . $module_prefix . 'wallets';

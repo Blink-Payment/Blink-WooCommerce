@@ -6,7 +6,7 @@ use P3\SDK\Gateway;
 /**
  * Gateway class
  */
-class WC_Payment_Network extends WC_Payment_Gateway {
+class WC_Blink_Payment extends WC_Payment_Gateway {
     /**
      * @var string
      */
@@ -103,7 +103,7 @@ class WC_Payment_Network extends WC_Payment_Gateway {
                     'direct'     => 'Direct 3-D Secure',
                 ),
                 'description' => __('This controls method of integration.', $this->lang),
-                'default'     => 'hosted (Embedded)'
+                'default'     => 'Hosted (Embedded)'
             ),
             'description' => array(
                 'title'       => __('Description', $this->lang),
@@ -631,7 +631,7 @@ FORM;
         if ($this->settings['customerWalletsEnabled'] === 'Y' && is_user_logged_in()) {
             //Try and find the users walletID in the wallets table.
             global $wpdb;
-            $wallet_table_name = $wpdb->prefix . 'woocommerce_payment_network_wallets';
+            $wallet_table_name = $wpdb->prefix . 'woocommerce_blink_payment_wallets';
 
             //Query table. Select customer wallet where belongs to user id and current configured merchant.
             $customersWalletID = $wpdb->get_var(
@@ -685,7 +685,7 @@ SCRIPT;
 
         //when the wallets is enabled, the user is logged in and there is a wallet ID in the response.
         if ($this->settings['customerWalletsEnabled'] === 'Y' && isset($response['walletID']) && $order->get_user_id() != 0) {
-            $wallet_table_name = $wpdb->prefix . 'woocommerce_' . 'payment_network_' . 'wallets';
+            $wallet_table_name = $wpdb->prefix . 'woocommerce_' . 'blink_payment_' . 'wallets';
 
             $customersWalletID = $wpdb->get_var(
                 $wpdb->prepare(
