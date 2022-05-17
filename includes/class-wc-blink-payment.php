@@ -40,7 +40,6 @@ class WC_Payment_Network extends WC_Payment_Gateway
 	{
 		$configs = include(dirname(__FILE__) . '/../config.php');
 
-<<<<<<< HEAD:includes/class-wc-blink-payment.php
         $this->has_fields          = false;
         $this->id                  = str_replace(' ', '', strtolower($configs['gateway_title']));
         $this->lang                = strtolower('woocommerce_' . $this->id);
@@ -50,16 +49,6 @@ class WC_Payment_Network extends WC_Payment_Gateway
         $this->default_merchant_id = $configs['default_merchant_id'];
         $this->default_secret      = $configs['default_secret'];
         $this->blink_gateway      = $configs['blink_gateway'];
-=======
-		$this->has_fields          = false;
-		$this->id                  = str_replace(' ', '', strtolower($configs['gateway_title']));
-		$this->lang                = strtolower('woocommerce_' . $this->id);
-		$this->icon                = plugins_url('/', dirname(__FILE__)) . 'assets/img/logo.png';
-		$this->method_title        = __($configs['gateway_title'], $this->lang);
-		$this->method_description  = __($configs['method_description'], $this->lang);
-		$this->default_merchant_id = $configs['default_merchant_id'];
-		$this->default_secret      = $configs['default_secret'];
->>>>>>> 7f52514ff40ad07b100b2d66e1ad456f13bb5a08:includes/class-wc-payment-network.php
 
 		$this->supports = array(
 			'subscriptions',
