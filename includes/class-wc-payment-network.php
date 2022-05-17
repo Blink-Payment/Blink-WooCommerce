@@ -38,6 +38,7 @@ class WC_Payment_Network extends WC_Payment_Gateway {
         $this->method_description  = __($configs['method_description'], $this->lang);
         $this->default_merchant_id = $configs['default_merchant_id'];
         $this->default_secret      = $configs['default_secret'];
+        $this->blink_gateway      = $configs['blink_gateway'];
 
         $this->supports = array (
             'subscriptions',
@@ -102,7 +103,7 @@ class WC_Payment_Network extends WC_Payment_Gateway {
                     'direct'     => 'Direct 3-D Secure',
                 ),
                 'description' => __('This controls method of integration.', $this->lang),
-                'default'     => 'hosted'
+                'default'     => 'hosted (Embedded)'
             ),
             'description' => array(
                 'title'       => __('Description', $this->lang),
@@ -132,6 +133,7 @@ class WC_Payment_Network extends WC_Payment_Gateway {
                 'title'       => __('Gateway URL', $this->lang),
                 'type'        => 'text',
                 'description' => __('Please enter your gateway URL.', $this->lang),
+                'default'     =>  $this-> blink_gateway,
                 'custom_attributes' => [
                     'required'        => true,
                 ],
