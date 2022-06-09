@@ -6,20 +6,12 @@ use P3\SDK\Gateway;
 /**
  * Gateway class
  */
-<<<<<<< HEAD:includes/class-wc-blink-payment.php
-class WC_Blink_Payment extends WC_Payment_Gateway {
-    /**
-     * @var string
-     */
-    public $lang;
-=======
-class WC_Payment_Network extends WC_Payment_Gateway
+class WC_Blink_Payment extends WC_Payment_Gateway
 {
 	/**
 	 * @var string
 	 */
 	public $lang;
->>>>>>> 7f52514ff40ad07b100b2d66e1ad456f13bb5a08:includes/class-wc-payment-network.php
 
 	/**
 	 * @var string
@@ -40,15 +32,14 @@ class WC_Payment_Network extends WC_Payment_Gateway
 	{
 		$configs = include(dirname(__FILE__) . '/../config.php');
 
-        $this->has_fields          = false;
-        $this->id                  = str_replace(' ', '', strtolower($configs['gateway_title']));
-        $this->lang                = strtolower('woocommerce_' . $this->id);
-        $this->icon                = plugins_url('/', dirname(__FILE__)) . 'assets/img/logo.png';
-        $this->method_title        = __($configs['gateway_title'], $this->lang);
-        $this->method_description  = __($configs['method_description'], $this->lang);
-        $this->default_merchant_id = $configs['default_merchant_id'];
-        $this->default_secret      = $configs['default_secret'];
-        $this->blink_gateway      = $configs['blink_gateway'];
+		$this->has_fields          = false;
+		$this->id                  = str_replace(' ', '', strtolower($configs['gateway_title']));
+		$this->lang                = strtolower('woocommerce_' . $this->id);
+		$this->icon                = plugins_url('/', dirname(__FILE__)) . 'assets/img/logo.png';
+		$this->method_title        = __($configs['gateway_title'], $this->lang);
+		$this->method_description  = __($configs['method_description'], $this->lang);
+		$this->default_merchant_id = $configs['default_merchant_id'];
+		$this->default_secret      = $configs['default_secret'];
 
 		$this->supports = array(
 			'subscriptions',
@@ -270,26 +261,21 @@ $browserInfo
 </script>
 <script type="text/javascript">
 var cardNumber = document.getElementById('field-cardNumber');
-
 payform.cardNumberInput(cardNumber);
 cardNumber.addEventListener('change', e => {
     e.target.style.borderColor = payform.validateCardNumber(e.target.value) ? '#B0B0B0' : 'red';     
 });
-
 document.getElementById('field-cardCVV').addEventListener('change', e => {
     e.target.style.borderColor = payform.validateCardCVC(e.target.value) ? '#B0B0B0' : 'red';     
 });
-
 var cardExpiryMonthElement = document.getElementById('field-cardExpiryMonth');
 var cardExpiryYearElement = document.getElementById('field-cardExpiryYear');
-
 var listener = e => {
     let isValid = payform.validateCardExpiry(cardExpiryMonthElement.value, '20'+cardExpiryYearElement.value);
     
     cardExpiryMonthElement.style.borderColor =  isValid ? '#B0B0B0' : 'red';     
     cardExpiryYearElement.style.borderColor = isValid ? '#B0B0B0' : 'red';     
 };
-
 cardExpiryMonthElement.addEventListener('change', listener);
 cardExpiryYearElement.addEventListener('change', listener);
 </script>
@@ -671,17 +657,8 @@ FORM;
 		if ($this->settings['customerWalletsEnabled'] === 'Y' && is_user_logged_in()) {
 			//Try and find the users walletID in the wallets table.
 			global $wpdb;
-			$wallet_table_name = $wpdb->prefix . 'woocommerce_payment_network_wallets';
+			$wallet_table_name = $wpdb->prefix . 'woocommerce_Blink_Payment_wallets';
 
-<<<<<<< HEAD:includes/class-wc-blink-payment.php
-        /**
-         * Wallets
-         */
-        if ($this->settings['customerWalletsEnabled'] === 'Y' && is_user_logged_in()) {
-            //Try and find the users walletID in the wallets table.
-            global $wpdb;
-            $wallet_table_name = $wpdb->prefix . 'woocommerce_blink_payment_wallets';
-=======
 			//Query table. Select customer wallet where belongs to user id and current configured merchant.
 			$customersWalletID = $wpdb->get_var(
 				$wpdb->prepare(
@@ -690,7 +667,6 @@ FORM;
 					$this->settings['merchantID']
 				)
 			);
->>>>>>> 7f52514ff40ad07b100b2d66e1ad456f13bb5a08:includes/class-wc-payment-network.php
 
 			//If the customer wallet record exists.
 			if ($customersWalletID > 0) {
@@ -740,13 +716,8 @@ SCRIPT;
 
 		//when the wallets is enabled, the user is logged in and there is a wallet ID in the response.
 		if ($this->settings['customerWalletsEnabled'] === 'Y' && isset($response['walletID']) && $order->get_user_id() != 0) {
-			$wallet_table_name = $wpdb->prefix . 'woocommerce_' . 'payment_network_' . 'wallets';
+			$wallet_table_name = $wpdb->prefix . 'woocommerce_' . 'Blink_Payment_' . 'wallets';
 
-<<<<<<< HEAD:includes/class-wc-blink-payment.php
-        //when the wallets is enabled, the user is logged in and there is a wallet ID in the response.
-        if ($this->settings['customerWalletsEnabled'] === 'Y' && isset($response['walletID']) && $order->get_user_id() != 0) {
-            $wallet_table_name = $wpdb->prefix . 'woocommerce_' . 'blink_payment_' . 'wallets';
-=======
 			$customersWalletID = $wpdb->get_var(
 				$wpdb->prepare(
 					"SELECT wallets_id FROM $wallet_table_name WHERE users_id = %d AND merchants_id = %d AND wallets_id = %d LIMIT 1",
@@ -755,7 +726,6 @@ SCRIPT;
 					$response['walletID']
 				)
 			);
->>>>>>> 7f52514ff40ad07b100b2d66e1ad456f13bb5a08:includes/class-wc-payment-network.php
 
 			//If the customer wallet record does not exists.
 			if ($customersWalletID === null) {
