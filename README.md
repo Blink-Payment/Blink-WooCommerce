@@ -8,7 +8,7 @@ This module enables the use of http://www.blinkpayment.co.uk payment gateway usi
 COMPATIBILITY
 ------------
 
-Compatible with version 5.8 of Woocommerce and upto 5.8 of Wordpress. 
+Compatible with version 6.8 of Woocommerce and upto 6.0 of Wordpress. 
 
 INTRODUCTION
 ------------

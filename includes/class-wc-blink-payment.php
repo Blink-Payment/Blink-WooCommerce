@@ -105,7 +105,7 @@ class WC_Blink_Payment extends WC_Payment_Gateway
 					'direct'     => 'Direct 3-D Secure',
 				),
 				'description' => __('This controls method of integration.', $this->lang),
-				'default'     => 'hosted'
+				'default'     => 'Hosted (Embedded)'
 			),
 			'description' => array(
 				'title'       => __('Description', $this->lang),
