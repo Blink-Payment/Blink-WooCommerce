@@ -135,6 +135,7 @@ class WC_Blink_Payment extends WC_Payment_Gateway
 				'title'       => __('Gateway URL', $this->lang),
 				'type'        => 'text',
 				'description' => __('Please enter your gateway URL.', $this->lang),
+				'default'     => $this->blink_gateway,
 				'custom_attributes' => [
 					'required'        => true,
 				],
