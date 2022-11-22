@@ -42,7 +42,7 @@ class Gateway
     /**
      * @var boolean	Enable debugging
      */
-    static public $debug = false;
+    static public $debug = true;
 
     /**
      * @var ClientInterface
@@ -143,7 +143,9 @@ class Gateway
 
         if ($iframe) {
             $htmlForm = <<<HTML
-<iframe id="paymentgatewayframe" name="paymentgatewayframe" frameBorder="0" seamless="seamless" style="width:699px; height:1100px;margin: 0 auto;display:block;"></iframe>
+<iframe id="paymentgatewayframe" name="paymentgatewayframe" scrolling="no" frameBorder="0" seamless="seamless" style="width:450px; height:740px;  border-radius: 10px;
+margin: 0 auto;display:block; border-style: solid; border-width: 5px; border-color:	rgb(230,230,230);"></iframe>
+
 HTML;
             $htmlForm .= self::silentPost($url, $request, 'paymentgatewayframe');
         } else {
