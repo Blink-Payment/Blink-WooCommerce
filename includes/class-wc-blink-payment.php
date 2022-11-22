@@ -695,7 +695,7 @@ FORM;
 <script>window.top.location.href = "$url";</script>;
 SCRIPT;
 		} else {
-			wp_redirect($url . '&XDEBUG_SESSION_START=asdf');
+			wp_redirect($url . '?XDEBUG_SESSION_START=asdf');
 		}
 		exit;
 	}
