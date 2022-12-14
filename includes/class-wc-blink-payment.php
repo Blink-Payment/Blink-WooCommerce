@@ -633,7 +633,6 @@ FORM;
 			'action'			  => 'SALE',
 			'merchantID'          => $this->settings['merchantID'],
 			'amount'              => $amount,
-			'countryCode'         => $this->settings['merchant_country_code'],
 			'currencyCode'        => $order->get_currency(),
 			'transactionUnique'   => uniqid($order->get_order_key() . "-"),
 			'orderRef'            => $order_id,
@@ -651,6 +650,13 @@ FORM;
 			$req['customerPhone'] = $phone;
 			unset($phone);
 		}
+		$countryCode = $this->settings['merchant_country_code'];
+		if (!empty($phone)) {
+			$req['countryCode'] = $countryCode;	
+		} else {
+			$req['countryCode'] = $this->default_merchant_country_code;
+		};
+		unset($countryCode);
 
 		/**
 		 * Subscriptions
