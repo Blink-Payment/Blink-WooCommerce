@@ -131,7 +131,7 @@ class WC_Blink_Payment extends WC_Payment_Gateway
 			'merchant_country_code' => array(
 				'title'       => __('Merchant country code', $this->lang),
 				'type'        => 'text',
-				'description' => __('Please enter your ' . $this->method_title . ' merchant country code', $this->lang),
+				'description' => __('Please enter your merchant country code (UK country code is 826)', $this->lang),
 				'default'     => $this->default_merchant_country_code,
 				'custom_attributes' => [
 					'required'        => true,
