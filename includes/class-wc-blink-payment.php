@@ -18,6 +18,11 @@ class WC_Blink_Payment extends WC_Payment_Gateway
 	 */
 	public $default_merchant_id;
 
+		/**
+	 * @var string
+	 */
+	public $default_merchant_country_code;
+
 	/**
 	 * @var string
 	 */
@@ -40,6 +45,7 @@ class WC_Blink_Payment extends WC_Payment_Gateway
 		$this->method_description  = __($configs['method_description'], $this->lang);
 		$this->default_merchant_id = $configs['default_merchant_id'];
 		$this->default_secret      = $configs['default_secret'];
+		$this->default_merchant_country_code = $configs['default_merchant_country_code'];
 
 		$this->supports = array(
 			'subscriptions',
@@ -118,6 +124,15 @@ class WC_Blink_Payment extends WC_Payment_Gateway
 				'type'        => 'text',
 				'description' => __('Please enter your ' . $this->method_title . ' merchant ID', $this->lang),
 				'default'     => $this->default_merchant_id,
+				'custom_attributes' => [
+					'required'        => true,
+				],
+			),
+			'merchant_country_code' => array(
+				'title'       => __('Merchant country code', $this->lang),
+				'type'        => 'text',
+				'description' => __('Please enter your ' . $this->method_title . ' merchant country code', $this->lang),
+				'default'     => $this->default_merchant_country_code,
 				'custom_attributes' => [
 					'required'        => true,
 				],
@@ -618,7 +633,7 @@ FORM;
 			'action'			  => 'SALE',
 			'merchantID'          => $this->settings['merchantID'],
 			'amount'              => $amount,
-			'countryCode'         => $order->get_billing_country(),
+			'countryCode'         => $this->settings['merchant_country_code'],
 			'currencyCode'        => $order->get_currency(),
 			'transactionUnique'   => uniqid($order->get_order_key() . "-"),
 			'orderRef'            => $order_id,
