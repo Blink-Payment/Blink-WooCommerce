@@ -18,7 +18,7 @@ class WC_Blink_Payment extends WC_Payment_Gateway
 	 */
 	public $default_merchant_id;
 
-		/**
+	/**
 	 * @var string
 	 */
 	public $default_merchant_country_code;
@@ -33,19 +33,31 @@ class WC_Blink_Payment extends WC_Payment_Gateway
 	 */
 	protected $gateway;
 
+	/**
+	 * Merchant signature key
+	 * @var string
+	 */
+	protected $merchant_signature_key;
+
+	/**
+	 * Logging ( verbose options )
+	 * @var Array
+	 */
+	protected static $logging_options;
+
 	public function __construct()
 	{
 		$configs = include(dirname(__FILE__) . '/../config.php');
 
-		$this->has_fields          = false;
-		$this->id                  = str_replace(' ', '', strtolower($configs['gateway_title']));
-		$this->lang                = strtolower('woocommerce_' . $this->id);
-		$this->icon                = plugins_url('/', dirname(__FILE__)) . 'assets/img/logo.png';
-		$this->method_title        = __($configs['gateway_title'], $this->lang);
-		$this->method_description  = __($configs['method_description'], $this->lang);
-		$this->default_merchant_id = $configs['default_merchant_id'];
-		$this->default_secret      = $configs['default_secret'];
-		$this->default_merchant_country_code = $configs['default_merchant_country_code'];
+		$this->has_fields          				 = false;
+		$this->id                  				 = str_replace(' ', '', strtolower($configs['gateway_title']));
+		$this->lang                				 = strtolower('woocommerce_' . $this->id);
+		$this->icon                				 = plugins_url('/', dirname(__FILE__)) . 'assets/img/logo.png';
+		$this->method_title        				 = __($configs['gateway_title'], $this->lang);
+		$this->method_description  				 = __($configs['method_description'], $this->lang);
+		$this->default_merchant_id 				 = $configs['default_merchant_id'];
+		$this->default_secret      				 = $configs['default_secret'];
+		$this->default_merchant_country_code 	 = $configs['default_merchant_country_code'];
 
 		$this->supports = array(
 			'subscriptions',
@@ -64,8 +76,10 @@ class WC_Blink_Payment extends WC_Payment_Gateway
 		$this->init_settings();
 
 		// Get setting values
-		$this->title               = $this->settings['title'];
-		$this->description         = $this->settings['description'];
+		$this->title			 	 	= $this->settings['title'];
+		$this->description				= $this->settings['description'];
+		$this->merchant_signature_key	= $this->settings['signature'];
+		static::$logging_options		= (empty($this->settings['logging_options']) ? null : array_flip(array_map('strtoupper', $this->settings['logging_options'])));
 
 		$this->gateway = new Gateway(
 			$this->settings['merchantID'],
@@ -80,11 +94,13 @@ class WC_Blink_Payment extends WC_Payment_Gateway
 
 		add_action('woocommerce_api_wc_' . $this->id, array($this, 'process_response_callback'));
 		add_action('woocommerce_scheduled_subscription_payment_' . $this->id, array($this, 'process_scheduled_subscription_payment_callback'), 10, 3);
+		
 	}
 
 	/**
 	 * Initialise Gateway Settings
 	 */
+
 	public function init_form_fields()
 	{
 		$this->form_fields = array(
@@ -175,6 +191,19 @@ class WC_Blink_Payment extends WC_Payment_Gateway
 				'description' => __('This controls whether wallets is enabled for customers on the hosted form.', $this->lang),
 				'default'     => 'No'
 			),
+			'logging_options' => array(
+				'title'       => __('Logging', $this->lang),
+				'type'        => 'multiselect',
+				'options' => array(
+					'critical'			=> 'Critical',
+					'error'				=> 'Error',
+					'warning'			=> 'Warning',
+					'notice'			=> 'Notice',
+					'info'				=> 'Info',
+					'debug'				=> 'Debug',
+				),
+				'description' => __('This controls if logging is turned on and how verbose it is. Warning! Logging will take up additional space, especially if Debug is selected.', $this->lang),
+			),
 		);
 	}
 
@@ -225,7 +254,7 @@ class WC_Blink_Payment extends WC_Payment_Gateway
 
 			$generateYearOptions = function () use ($parameters) {
 				$str = '';
-				foreach (range(date("Y"), date("Y") + 12) as $value) {
+				foreach (range(date('Y'), date('Y') + 12) as $value) {
 					$s = $parameters['cardExpiryYear'] == $value ? 'selected' : '';
 					$str .= '<option value="' . substr($value, 2) . '" ' . $s . '>' . $value . '</option>' . "\n";
 				}
@@ -236,66 +265,80 @@ class WC_Blink_Payment extends WC_Payment_Gateway
 			echo
 			/** @lang html */
 			<<<FORM
-<div style="display:flex; flex-direction:column; margin-bottom: 1vh;">
-    <label>Card Number</label>
-    <input type='text' id="field-cardNumber" name="cardNumber" value='{$parameters['cardNumber']}' maxlength="23" required='required'/>
-</div>
-<div style="display:flex; place-content:center space-between;">
-    <div style="flex-direction: column; width: 45%; display: flex;">
-        <label>Card Expiry Date</label>
-        <div>
-            <select style="width: 45%;" id="field-cardExpiryMonth" name="cardExpiryMonth" required='required'>
-                <option value="" disabled selected>Month</option>
-                {$generateMonthOptions()}
-            </select>
-            <select style="width: 45%;" id="field-cardExpiryYear" name="cardExpiryYear" required='required'>
-                <option value="" disabled selected>Year</option>
-                {$generateYearOptions()}
-            </select>
-        </div>
-    </div>
-    <div style="width: 40%; flex-direction: column; display: flex;">
-        <label>CVV</label>
-        <input type="text" id="field-cardCVV" name="cardCVV" value="{$parameters['cardCVV']}" maxlength="4" required="required"/>
-    </div>
-</div>
-<br/>
-$browserInfo
-<script>
-    var screen_width = (window && window.screen ? window.screen.width : '0');
-    var screen_height = (window && window.screen ? window.screen.height : '0');
-    var screen_depth = (window && window.screen ? window.screen.colorDepth : '0');
-    var identity = (window && window.navigator ? window.navigator.userAgent : '');
-    var language = (window && window.navigator ? (window.navigator.language ? window.navigator.language : window.navigator.browserLanguage) : '');
-    var timezone = (new Date()).getTimezoneOffset();
-    var java = (window && window.navigator ? navigator.javaEnabled() : false);
-    document.getElementById('deviceIdentity').value = identity;
-    document.getElementById('deviceTimeZone').value = timezone;
-    document.getElementById('deviceCapabilities').value = 'javascript' + (java ? ',java' : '');
-    document.getElementById('deviceAcceptLanguage').value = language;
-    document.getElementById('deviceScreenResolution').value = screen_width + 'x' + screen_height + 'x' + screen_depth;
-</script>
-<script type="text/javascript">
-var cardNumber = document.getElementById('field-cardNumber');
-payform.cardNumberInput(cardNumber);
-cardNumber.addEventListener('change', e => {
-    e.target.style.borderColor = payform.validateCardNumber(e.target.value) ? '#B0B0B0' : 'red';     
-});
-document.getElementById('field-cardCVV').addEventListener('change', e => {
-    e.target.style.borderColor = payform.validateCardCVC(e.target.value) ? '#B0B0B0' : 'red';     
-});
-var cardExpiryMonthElement = document.getElementById('field-cardExpiryMonth');
-var cardExpiryYearElement = document.getElementById('field-cardExpiryYear');
-var listener = e => {
-    let isValid = payform.validateCardExpiry(cardExpiryMonthElement.value, '20'+cardExpiryYearElement.value);
-    
-    cardExpiryMonthElement.style.borderColor =  isValid ? '#B0B0B0' : 'red';     
-    cardExpiryYearElement.style.borderColor = isValid ? '#B0B0B0' : 'red';     
-};
-cardExpiryMonthElement.addEventListener('change', listener);
-cardExpiryYearElement.addEventListener('change', listener);
-</script>
-FORM;
+			<div style = 'display:flex; flex-direction:column; margin-bottom: 1vh;'>
+			<label>Card Number</label>
+			<input type = 'text' id = 'field-cardNumber' name = 'cardNumber' value = '{$parameters['cardNumber']}' maxlength = '23' required = 'required'/>
+			</div>
+			<div style = 'display:flex; place-content:center space-between;'>
+			<div style = 'flex-direction: column; width: 45%; display: flex;'>
+			<label>Card Expiry Date</label>
+			<div>
+			<select style = 'width: 45%;' id = 'field-cardExpiryMonth' name = 'cardExpiryMonth' required = 'required'>
+			<option value = '' disabled selected>Month</option>
+			{
+				$generateMonthOptions()}
+				</select>
+				<select style = 'width: 45%;' id = 'field-cardExpiryYear' name = 'cardExpiryYear' required = 'required'>
+				<option value = '' disabled selected>Year</option>
+				{
+					$generateYearOptions()}
+					</select>
+					</div>
+					</div>
+					<div style = 'width: 40%; flex-direction: column; display: flex;'>
+					<label>CVV</label>
+					<input type = 'text' id = 'field-cardCVV' name = 'cardCVV' value = "{$parameters['cardCVV']}" maxlength = '4' required = 'required'/>
+					</div>
+					</div>
+					<br/>
+					$browserInfo
+					<script>
+					var screen_width = ( window && window.screen ? window.screen.width : '0' );
+					var screen_height = ( window && window.screen ? window.screen.height : '0' );
+					var screen_depth = ( window && window.screen ? window.screen.colorDepth : '0' );
+					var identity = ( window && window.navigator ? window.navigator.userAgent : '' );
+					var language = ( window && window.navigator ? ( window.navigator.language ? window.navigator.language : window.navigator.browserLanguage ) : '' );
+					var timezone = ( new Date() ).getTimezoneOffset();
+					var java = ( window && window.navigator ? navigator.javaEnabled() : false );
+					document.getElementById( 'deviceIdentity' ).value = identity;
+					document.getElementById( 'deviceTimeZone' ).value = timezone;
+					document.getElementById( 'deviceCapabilities' ).value = 'javascript' + ( java ? ',java' : '' );
+					document.getElementById( 'deviceAcceptLanguage' ).value = language;
+					document.getElementById( 'deviceScreenResolution' ).value = screen_width + 'x' + screen_height + 'x' + screen_depth;
+					</script>
+					<script type = 'text/javascript'>
+					var cardNumber = document.getElementById( 'field-cardNumber' );
+
+					payform.cardNumberInput( cardNumber );
+					cardNumber.addEventListener( 'change', e => {
+						e.target.style.borderColor = payform.validateCardNumber( e.target.value ) ? '#B0B0B0' : 'red';
+
+					}
+				);
+
+				document.getElementById( 'field-cardCVV' ).addEventListener( 'change', e => {
+					e.target.style.borderColor = payform.validateCardCVC( e.target.value ) ? '#B0B0B0' : 'red';
+
+				}
+			);
+
+			var cardExpiryMonthElement = document.getElementById( 'field-cardExpiryMonth' );
+			var cardExpiryYearElement = document.getElementById( 'field-cardExpiryYear' );
+
+			var listener = e => {
+				let isValid = payform.validateCardExpiry( cardExpiryMonthElement.value, '20'+cardExpiryYearElement.value );
+
+				cardExpiryMonthElement.style.borderColor =  isValid ? '#B0B0B0' : 'red';
+
+				cardExpiryYearElement.style.borderColor = isValid ? '#B0B0B0' : 'red';
+
+			}
+			;
+
+			cardExpiryMonthElement.addEventListener( 'change', listener );
+			cardExpiryYearElement.addEventListener( 'change', listener );
+			</script>
+			FORM;
 
 			wp_enqueue_style('gateway-credit-card-styles', plugins_url('assets/css/gateway.css', dirname(__FILE__)));
 		}
@@ -332,9 +375,11 @@ FORM;
 	 *
 	 * @return array
 	 */
+
 	public function process_payment($order_id)
 	{
 		$order = new WC_Order($order_id);
+		$this->debug_log('INFO', "Processing payment for order {$order_id}");
 
 		if (in_array($this->settings['type'], ['hosted', 'hosted_v2', 'hosted_v3'], true)) {
 			return array(
@@ -356,7 +401,7 @@ FORM;
 				'threeDSRedirectURL'   => add_query_arg(
 					[
 						'wc-api' => 'wc_' . $this->id,
-						'XDEBUG_SESSION_START' => 'asdf'
+						'threedsresponse',
 					],
 					home_url('/')
 				),
@@ -364,6 +409,7 @@ FORM;
 		);
 
 		$response = $this->gateway->directRequest($args);
+
 		setcookie('xref', $response['xref'], time() + 315);
 
 		return $this->process_response_callback($response);
@@ -371,6 +417,8 @@ FORM;
 
 	public function process_refund($order_id, $amount = null, $reason = '')
 	{
+		$this->debug_log('INFO', "Processing refund for order {$order_id} for the amount {$amount} and the reason {$reason}");
+
 		$order = wc_get_order($order_id);
 
 		if (!$this->can_refund_order($order)) {
@@ -393,6 +441,7 @@ FORM;
 	/**
 	 * receipt_page
 	 */
+
 	public function receipt_page($order)
 	{
 		if (in_array($this->settings['type'], ['hosted', 'hosted_v2', 'hosted_v3'])) {
@@ -400,8 +449,8 @@ FORM;
 			$callback = add_query_arg('wc-api', 'wc_' . $this->id, home_url('/'));
 
 			$req = array_merge($this->capture_order($order), array(
-				'redirectURL' => $redirect,
-				'callbackURL' => $callback,
+				'redirectURL' => $redirect . '&XDEBUG_SESSION_START',
+				'callbackURL' => $callback . '&callback' . '&XDEBUG_SESSION_START',
 				'formResponsive' => $this->settings['formResponsive'],
 			));
 
@@ -411,17 +460,23 @@ FORM;
 		return null;
 	}
 
+	/**
+	 * On order success
+	 *
+	 * @param Array	$response
+	 */
+
 	public function on_order_success($response)
 	{
 		$order = new WC_Order((int)$response['orderRef']);
 
-		$orderNotes  = "\r\nResponse Code : {$response['responseCode']}\r\n";
-		$orderNotes .= "Message : {$response['responseMessage']}\r\n";
-		$orderNotes .= "Amount Received : " . number_format($response['amount'] / 100, 2) . "\r\n";
-		$orderNotes .= "Unique Transaction Code : {$response['transactionUnique']}";
+		$order_notes  = "\r\nResponse Code : {$response['responseCode']}\r\n";
+		$order_notes .= "Message : {$response['responseMessage']}\r\n";
+		$order_notes .= 'Amount Received : ' . number_format($response['amount'] / 100, 2) . "\r\n";
+		$order_notes .= "Unique Transaction Code : {$response['transactionUnique']}";
 
 		$order->set_transaction_id($response['xref']);
-		$order->add_order_note(__(ucwords($this->method_title) . ' payment completed.' . $orderNotes, $this->lang));
+		$order->add_order_note(__(ucwords($this->method_title) . ' payment completed.' . $order_notes, $this->lang));
 		$order->payment_complete();
 
 		$successUrl = $this->get_return_url($order);
@@ -436,6 +491,10 @@ FORM;
 		$this->redirect($successUrl);
 		die();
 	}
+
+	/**
+	 * On 3DS required
+	 */
 
 	public function on_threeds_required($threeDSVersion, $res)
 	{
@@ -453,27 +512,6 @@ FORM;
 							'threeDSRequest' => $res['threeDSRequest'],
 						],
 						plugins_url('public/3d-secure-form-v2.php', dirname(__FILE__))
-					),
-				];
-			case is_ajax() && $threeDSVersion < 200:
-				$callback = add_query_arg(
-					[
-						'wc-api' => 'wc_' . $this->id,
-						'xref' => $res['xref'],
-					],
-					home_url('/')
-				);
-
-				return [
-					'result' => 'success',
-					'redirect' => add_query_arg(
-						[
-							'ACSURL' => rawurlencode($res['threeDSURL']),
-							'PaReq' => rawurlencode($res['threeDSRequest']['PaReq']),
-							'MD' => rawurlencode($res['threeDSRequest']['MD']),
-							'TermUrl' => rawurlencode($callback),
-						],
-						plugins_url('public/3d-secure-form.php', dirname(__FILE__))
 					),
 				];
 			default:
@@ -494,9 +532,10 @@ FORM;
 	 * @param $amount_to_charge
 	 * @param $renewal_order
 	 */
+
 	public function process_scheduled_subscription_payment_callback($amount_to_charge, $renewal_order)
 	{
-		// Gets all subscriptions (hopefully just one) linked to this order
+		// Gets all subscriptions ( hopefully just one ) linked to this order
 		$subs = wcs_get_subscriptions_for_renewal_order($renewal_order);
 
 		// Get all orders on this subscription and remove any that haven't been paid
@@ -522,58 +561,82 @@ FORM;
 			'avscv2CheckRequired' => 'N',
 		);
 
+		$this->debug_log('DEBUG', 'Request for gateway', $req);
+
+		// Send subscription payment request to gateway.
+		$this->debug_log('INFO', 'Sending Subscription payment request to gateway');
 		$response = $this->gateway->directRequest($req);
+		$this->debug_log('DEBUG', 'Response from gateway', $response);
 
+		// Handle the response.
 		try {
-			$result = $this->gateway->verifyResponse($response, [$this, 'on_threeds_required'], function ($res) use ($renewal_order) {
-				$orderNotes  = "\r\nResponse Code : {$res['responseCode']}\r\n";
-				$orderNotes .= "Message : {$res['responseMessage']}\r\n";
-				$orderNotes .= "Amount Received : " . number_format($res['amount'] / 100, 2) . "\r\n";
-				$orderNotes .= "Unique Transaction Code : {$res['transactionUnique']}";
 
-				$renewal_order->set_transaction_id($res['xref']);
-				$renewal_order->add_order_note(__(ucwords($this->method_title) . ' payment completed.' . $orderNotes, $this->lang));
+			// Verify the response.
+			$this->debug_log('INFO', 'Verifying response signature');
+			$this->gateway->verifyResponse($response, $this->merchant_signature_key);
+			$this->debug_log('INFO', 'Response has been verified');
+
+			// Create order notes to be added to the final notes.
+			$order_notes  = "\r\nResponse Code : {$response['responseCode']}\r\n";
+			$order_notes .= "Message : {$response['responseMessage']}\r\n";
+			$order_notes .= "Unique Transaction Code : {$response['transactionUnique']}";
+
+			$renewal_order->set_transaction_id($response['xref']);
+
+
+			if ($response['responseCode'] == 0) {
+
+				$this->debug_log('INFO', "A subscription payment was accepted by the gateway");
+				$order_notes .= "Amount Received : " . number_format($response['amount'] / 100, 2) . "\r\n";
+				$renewal_order->add_order_note(__(ucwords($this->method_title) . ' payment completed.' . $order_notes, $this->lang));
 				$renewal_order->payment_complete();
 				$renewal_order->save();
 
+				WC_Subscriptions_Manager::process_subscription_payments_on_order($renewal_order);
+
 				return true;
-			});
+			} else {
+
+				$this->debug_log('INFO', "A subscription payment was declined by the gateway");
+				$renewal_order->add_order_note(__(ucwords($this->method_title) . ' payment failed' . $order_notes, $this->lang));
+				$renewal_order->save();
+				WC_Subscriptions_Manager::process_subscription_payment_failure_on_order($renewal_order);
+
+				return false;
+			}
 		} catch (Exception $exception) {
-			$result = new WP_Error('payment_failed_error', $exception->getMessage());
+
+			$this->debug_log('ERROR', "Something went wrong when trying to process a subscription", [$req, $response, $exception]);
+
 			$renewal_order->add_order_note(
-				__(ucwords($this->method_title) . ' payment failed. Could not communicate with direct API. Curl data: ' . json_encode($req), $this->lang)
+				__(ucwords($this->method_title) . "\r\nError processing automatic payment\r\n" . $response['responseMessage'], $this->lang)
 			);
 			$renewal_order->save();
-		}
 
-		if (is_wp_error($result)) {
 			WC_Subscriptions_Manager::process_subscription_payment_failure_on_order($renewal_order);
-		} else {
-			WC_Subscriptions_Manager::process_subscription_payments_on_order($renewal_order);
 		}
 	}
 
 	/**
+	 * Process Response or Callback
+	 * 
 	 * Hook to process the response from payment gateway
+	 * or from an ACS
+	 * 
+	 * @param Array $response
 	 */
 	public function process_response_callback($response = null)
 	{
-		// v1
-		if (isset($_REQUEST['MD'], $_REQUEST['PaRes'])) {
-			$req = array(
-				'action'	   => 'SALE',
-				'merchantID'   => $this->settings['merchantID'],
-				'xref'         => $_COOKIE['xref'],
-				'threeDSMD'    => $_REQUEST['MD'],
-				'threeDSPaRes' => $_REQUEST['PaRes'],
-				'threeDSPaReq' => ($_REQUEST['PaReq'] ?? null),
-			);
+		$this->debug_log('INFO', 'Processing response or callback');
+		$this->debug_log('DEBUG', 'Response/Callback/$POST data', $response ?? $_POST);
 
-			$response = $this->gateway->directRequest($req);
-		}
-
-		// v2
+		// 3DS v2 handling.
 		if (isset($_POST['threeDSMethodData']) || isset($_POST['cres'])) {
+
+
+			$this->debug_log('INFO', 'An ACS has posted data');
+			$this->debug_log('DEBUG', 'ACS Postback data', $_POST);
+
 			$req = array(
 				'merchantID' => $this->settings['merchantID'],
 				'action' => 'SALE',
@@ -583,16 +646,75 @@ FORM;
 			);
 
 			$response = $this->gateway->directRequest($req);
+			$this->debug_log('INFO', 'ACS data processed by gateway');
+			$this->debug_log('DEBUG', 'ACS Postback data', $_POST);
 		}
 
-		$res = empty($response) ? stripslashes_deep($_POST) : $response;
+		$response = (empty($response) ? stripslashes_deep($_POST) : $response);
 
-		$this->create_wallet($res);
-
+		// Verify the response signature. If the response was not verified it will throw a runtime excpetion.
 		try {
-			return $this->gateway->verifyResponse($res, [$this, 'on_threeds_required'], [$this, 'on_order_success']);
+			$this->debug_log('INFO', 'Verifying response signature');
+			$this->gateway->verifyResponse($response, $this->merchant_signature_key);
+			$this->debug_log('INFO', 'Response has been verified');
+		} catch (RuntimeException $exception) {
+			$this->debug_log('WARNING', "Response could not be verified", $response);
+			return $this->process_error($exception->getMessage(), $response);
 		} catch (Exception $exception) {
-			return $this->process_error($exception->getMessage(), $res);
+			$this->debug_log('WARNING', "Something went wrong when trying to verify the response", [$response, $exception]);
+			return $this->process_error($exception->getMessage(), $response);
+		}
+
+		// Get the WC Order that matched the orderRef in the response.
+		$order = new WC_Order((int)$response['orderRef']);
+
+		// Check if this is a call back trying to update a paid/failed order.
+		if (isset($_GET['callback']) && $order->get_status() != 'pending') {
+
+			$this->debug_log('INFO', 'Callback received payment for response already processed');
+			return;
+		} else if ($order->get_status() != 'pending') {
+
+			// Check if this is a dupliate response.
+			if ($_COOKIE['duplicate_payment_response_count'] > 0) {
+
+				$this->debug_log("NOTICE", "A duplicate response has been received for an order thats already processed a payment");
+				// Add an order note
+				$order_notes   = "\r\nA duplicate payment response was received.\r\n";
+				$order_notes  .= "\r\nOrder #{$response['orderRef']}\r\n";
+				$order_notes  .= "\r\nOutcome {$response['response_msg']}\r\n";
+				$order_notes  .= "\r\nA Duplicate count number {$_COOKIE['duplicate_payment_response_count']}.\r\n";
+				$order->add_order_note(__(ucwords($this->method_title) . '- Duplicate Response!' . $order_notes, $this->lang));
+			}
+			// Increase duplicate_payment_response_count by one
+			setcookie('duplicate_payment_response_count', ($_COOKIE['duplicate_payment_response_count'] + 1), [
+				'expires' => time() + 500,
+				'path' => '/',
+				'domain' => $_SERVER['HTTP_HOST'],
+				'secure' => true,
+				'httponly' => false,
+				'samesite' => 'None'
+			]);
+			// Redirect customer to order paid/failed page.
+			$this->redirect($this->get_return_url($order));
+		}
+
+		// Duplicate check passed. Handle the response.
+
+		// Create a wallet if a walletID in the response.
+		if (!empty($response['walletID'])) {
+			$this->create_wallet($response);
+		}
+
+		// Handle the outcome based on the response code.
+		if ($response['responseCode'] == 0) {
+
+			$this->debug_log('INFO', "Payment for order {$response['orderRef']} was successful");
+			$this->on_order_success($response);
+		} else {
+
+			$this->debug_log('INFO', "Payment for order {$response['orderRef']} failed");
+			$this->process_error('Payment failed', $response);
 		}
 	}
 
@@ -634,7 +756,7 @@ FORM;
 			'merchantID'          => $this->settings['merchantID'],
 			'amount'              => $amount,
 			'currencyCode'        => $order->get_currency(),
-			'transactionUnique'   => uniqid($order->get_order_key() . "-"),
+			'transactionUnique'   => uniqid($order->get_order_key() . '-'),
 			'orderRef'            => $order_id,
 			'customerName'        => $order->get_billing_first_name() . ' ' . $order->get_billing_last_name(),
 			'customerCountryCode' => $order->get_billing_country(),
@@ -694,14 +816,21 @@ FORM;
 			if ($customersWalletID > 0) {
 				//Add walletID to request.
 				$req['walletID'] = $customersWalletID;
-			} else {
-				//Create a new wallet.
-				$req['walletStore'] = 'Y';
 			}
 
 			$req['walletEnabled'] = 'Y';
 			$req['walletRequired'] = 'Y';
 		}
+
+		// Set the duplicate payment checker to 0.
+		setcookie('duplicate_payment_response_count', 0, [
+			'expires' => time() + 500,
+			'path' => '/',
+			'domain' => $_SERVER['HTTP_HOST'],
+			'secure' => true,
+			'httponly' => false,
+			'samesite' => 'None'
+		]);
 
 		return $req;
 	}
@@ -713,10 +842,11 @@ FORM;
 	{
 		if ($this->settings['type'] === 'hosted_v2') {
 			echo <<<SCRIPT
-<script>window.top.location.href = "$url";</script>;
-SCRIPT;
+			<script>window.top.location.href = "$url";
+			</script>;
+			SCRIPT;
 		} else {
-			wp_redirect($url . '?XDEBUG_SESSION_START=asdf');
+			wp_redirect($url . '&XDEBUG_SESSION_START');
 		}
 		exit;
 	}
@@ -766,6 +896,9 @@ SCRIPT;
 	 */
 	protected function process_error($message, $response)
 	{
+		$this->debug_log('INFO', 'Payment failed', $message);
+		$this->debug_log('DEBUG', 'Process error data', [$message, $response]);
+
 		if (isset($response['responseCode']) && in_array($response['responseCode'], [66315, 66316, 66316, 66320])) {
 			$message = 'Double check to make sure that you entered your Credit Card number, CVV2 code, and Expiration Date correctly.';
 		}
@@ -778,17 +911,16 @@ SCRIPT;
 		if (isset($response['orderRef'], $response['responseCode'], $response['responseMessage'], $response['amount'])) {
 			$order = new WC_Order((int)$response['orderRef']);
 
-			$orderNotes  = "\r\nResponse Code : {$response['responseCode']}\r\n";
-			$orderNotes .= "Message : {$response['responseMessage']}\r\n";
-			$orderNotes .= "Amount Received : " . number_format($response['amount'] / 100, 2) . "\r\n";
-			$orderNotes .= "Unique Transaction Code : {$response['transactionUnique']}";
+			$order_notes  = "\r\nResponse Code : {$response['responseCode']}\r\n";
+			$order_notes .= "Message : {$response['responseMessage']}\r\n";
+			$order_notes .= 'Amount Received : ' . number_format($response['amount'] / 100, 2) . "\r\n";
+			$order_notes .= "Unique Transaction Code : {$response['transactionUnique']}";
 
 			$order->update_status('failed');
-			$order->add_order_note(__(ucwords($this->method_title) . ' payment failed.' . $orderNotes, $this->lang));
+			$order->add_order_note(__(ucwords($this->method_title) . ' payment failed.' . $order_notes, $this->lang));
 
 			$redirectUrl = $this->get_return_url($order);
 		}
-
 
 		if (is_ajax()) {
 			return [];
@@ -816,7 +948,20 @@ SCRIPT;
 
 		// and this is our custom JS in your plugin directory that works with token.js
 		wp_register_script('woocommerce_payform', plugins_url('assets/js/payform.js', dirname(__FILE__)), array('jquery'));
-
 		wp_enqueue_script('woocommerce_payform');
 	}
+
+	/**
+	 * Debug
+	 */
+	public function debug_log($type, $logMessage, $objects = null)
+	{
+		// If logging is not null and $type isin logging verbose selection.
+		if (isset(static::$logging_options[$type])) {
+			wc_get_logger()->{$type}(print_r($logMessage, true) . print_r($objects, true), array('source' => $this->title));
+		}	
+		// If logging_options empty.
+		return;
+	}
+	
 }
