@@ -711,6 +711,9 @@ class WC_Blink_Payment extends WC_Payment_Gateway
 
 			$this->debug_log('INFO', "Payment for order {$response['orderRef']} was successful");
 			$this->on_order_success($response);
+		} else if($response['responseCode'] ==  65576){
+			$this->debug_log('INFO', "Payment for order {$response['orderRef']} was cancelled by the customer");
+			$this->process_error('Payment cancelled', $response);
 		} else {
 
 			$this->debug_log('INFO', "Payment for order {$response['orderRef']} failed");
@@ -915,9 +918,15 @@ class WC_Blink_Payment extends WC_Payment_Gateway
 			$order_notes .= "Message : {$response['responseMessage']}\r\n";
 			$order_notes .= 'Amount Received : ' . number_format($response['amount'] / 100, 2) . "\r\n";
 			$order_notes .= "Unique Transaction Code : {$response['transactionUnique']}";
-
-			$order->update_status('failed');
-			$order->add_order_note(__(ucwords($this->method_title) . ' payment failed.' . $order_notes, $this->lang));
+             if($response['responseCode'] == 65576 ) {
+				$order->update_status('cancelled');
+				$order->add_order_note(__(ucwords($this->method_title) . ' - customer cancelled payment.' . $order_notes, $this->lang));
+			 } else {
+				$order->update_status('failed');
+				$order->add_order_note(__(ucwords($this->method_title) . ' payment failed.' . $order_notes, $this->lang));
+			 }
+			
+		
 
 			$redirectUrl = $this->get_return_url($order);
 		}
