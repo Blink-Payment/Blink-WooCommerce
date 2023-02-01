@@ -58,7 +58,7 @@ class WC_Blink_Payment extends WC_Payment_Gateway
 		$this->default_merchant_id 				 = $configs['default_merchant_id'];
 		$this->default_secret      				 = $configs['default_secret'];
 		$this->default_merchant_country_code 	 = $configs['default_merchant_country_code'];
-
+		$this->blink_gateway 	                 = $configs['blink_gateway'];
 		$this->supports = array(
 			'subscriptions',
 			'products',
