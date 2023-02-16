@@ -1,38 +1,38 @@
 Disclaimer: Please note that we no longer support older versions of SDKs and Modules. We recommend that the latest versions are used.
 
-Blink Woocommerce Plugin
+Blink woocommerce plugin
 ==============
 
-This module enables the use of http://www.blinkpayment.co.uk payment gateway using the Woocommerce project http://www.woothemes.com
+This module enables the use of the blink payment gateway using the Woocommerce project http://www.woothemes.com
 
-COMPATIBILITY
+Compatiblity
 ------------
 
 Compatible with version 6.x of Woocommerce and upto 6.x of Wordpress. 
 
-REQUIREMENTS
+Requirments
 ------------
 
 PHP-BCMaths
 
-INTRODUCTION
+Introduction
 ------------
 
-This module enables the woocommerce customers to pay for their items using Blink by hosted form or direct payment gateway.
+This module enables the Woocommerce customers to pay for their items using Blink by hosted form or direct payment gateway.
 
 What does it do?
 ----------------
-Presents the option to pay with credit card or debit card via the Blink payment gateway.
+Presents the option to pay with credit card or debit card via the blink payment gateway.
 
 
-INSTALLATION
+Installation
 ------------
 
 1. Go to the plugins section of the admin panel
 
-2. Click Add New
+2. Click "Add New"
 
-3. Click Upload plugin (Near the top left of the page nexto the menu)
+3. Click "Upload plugin" (Near the top left of the page nexto the menu)
 
 4. Click the "Choose File" button and select the module (which will be the whole zip file this readme is in)
 
@@ -55,7 +55,7 @@ Manual installation
 6. Click 'Save Changes'.
 
 
-Rebrand Instructions
+Rebrand instructions
 --------------------
 
 The module does not require any editing of file to be used. The options can be changed via the plugin settings.
@@ -68,7 +68,7 @@ default_merchant_id is the default merchant ID the module will use. It's recomme
 default_secrect is the signature/secret for the default merchant.
 
 
-Setup Instructions
+Setup instructions
 --------------------
 
 Setting up the module requires at a minimum a merchantID, a signature/secret key and
