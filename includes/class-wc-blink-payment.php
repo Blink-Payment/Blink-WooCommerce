@@ -275,13 +275,11 @@ class WC_Blink_Payment extends WC_Payment_Gateway
 			<div>
 			<select style = 'width: 45%;' id = 'field-cardExpiryMonth' name = 'cardExpiryMonth' required = 'required'>
 			<option value = '' disabled selected>Month</option>
-			{
-				$generateMonthOptions()}
+			{$generateMonthOptions()}
 				</select>
 				<select style = 'width: 45%;' id = 'field-cardExpiryYear' name = 'cardExpiryYear' required = 'required'>
 				<option value = '' disabled selected>Year</option>
-				{
-					$generateYearOptions()}
+				{$generateYearOptions()}
 					</select>
 					</div>
 					</div>
@@ -378,6 +376,7 @@ class WC_Blink_Payment extends WC_Payment_Gateway
 
 	public function process_payment($order_id)
 	{
+
 		$order = new WC_Order($order_id);
 		$this->debug_log('INFO', "Processing payment for order {$order_id}");
 
@@ -401,7 +400,8 @@ class WC_Blink_Payment extends WC_Payment_Gateway
 				'threeDSRedirectURL'   => add_query_arg(
 					[
 						'wc-api' => 'wc_' . $this->id,
-						'threedsresponse',
+						'3dsResponse' => 'Y',
+						 'XDEBUG_SESSION_START' => 'asdf',
 					],
 					home_url('/')
 				),
@@ -410,7 +410,14 @@ class WC_Blink_Payment extends WC_Payment_Gateway
 
 		$response = $this->gateway->directRequest($args);
 
-		setcookie('xref', $response['xref'], time() + 315);
+		setcookie('xref', $response['xref'], [
+			'expires' => time() + 500,
+			'path' => '/',
+			'domain' => $_SERVER['HTTP_HOST'],
+			'secure' => true,
+			'httponly' => false,
+			'samesite' => 'None'
+		]);
 
 		return $this->process_response_callback($response);
 	}
@@ -449,8 +456,8 @@ class WC_Blink_Payment extends WC_Payment_Gateway
 			$callback = add_query_arg('wc-api', 'wc_' . $this->id, home_url('/'));
 
 			$req = array_merge($this->capture_order($order), array(
-				'redirectURL' => $redirect . '&XDEBUG_SESSION_START',
-				'callbackURL' => $callback . '&callback' . '&XDEBUG_SESSION_START',
+				'redirectURL' => $redirect,
+				'callbackURL' => $callback . '&callback',
 				'formResponsive' => $this->settings['formResponsive'],
 			));
 
@@ -495,30 +502,36 @@ class WC_Blink_Payment extends WC_Payment_Gateway
 	/**
 	 * On 3DS required
 	 */
+	public function on_threeds_required($res) {
 
-	public function on_threeds_required($threeDSVersion, $res)
-	{
-		setcookie('threeDSRef', $res['threeDSRef'], time() + 315);
+		setcookie('threeDSRef',  $res['threeDSRef'], [
+			'expires' => time() + 600,
+			'path' => '/',
+			'domain' => $_SERVER['HTTP_HOST'],
+			'secure' => true,
+			'httponly' => false,
+			'samesite' => 'None'
+		]);
 
-		switch (true) {
-			case is_ajax() && $threeDSVersion >= 200:
+		if (isset($_GET['3dsResponse'])) {
+			
+			// Echo out the ACS form that will auto submit and then stop executing immediately after.
+			echo Gateway::silentPost($res['threeDSURL'], $res['threeDSRequest']);
+			wp_die();
 
-				return [
-					'result' => 'success',
-					'redirect' => add_query_arg(
-						[
-							'ACSURL' => rawurlencode($res['threeDSURL']),
-							'threeDSRef' => rawurlencode($res['threeDSRef']),
-							'threeDSRequest' => $res['threeDSRequest'],
-						],
-						plugins_url('public/3d-secure-form-v2.php', dirname(__FILE__))
-					),
-				];
-			default:
-				// Silently POST the 3DS request to the ACS in the IFRAME
-				echo Gateway::silentPost($res['threeDSURL'], $res['threeDSRequest']);
-
-				die();
+		} else {
+		
+			return [
+				'result' => 'success',
+				'redirect' => add_query_arg(
+					[
+						'ACSURL' => rawurlencode($res['threeDSURL']),
+						'threeDSRef' => rawurlencode($res['threeDSRef']),
+						'threeDSRequest' => $res['threeDSRequest'],
+					],
+					plugins_url('public/3d-secure-form-v2.php', dirname(__FILE__))
+				)
+			];
 		}
 	}
 
@@ -673,6 +686,7 @@ class WC_Blink_Payment extends WC_Payment_Gateway
 
 			$this->debug_log('INFO', 'Callback received payment for response already processed');
 			return;
+			
 		} else if ($order->get_status() != 'pending') {
 
 			// Check if this is a dupliate response.
@@ -682,11 +696,17 @@ class WC_Blink_Payment extends WC_Payment_Gateway
 				// Add an order note
 				$order_notes   = "\r\nA duplicate payment response was received.\r\n";
 				$order_notes  .= "\r\nOrder #{$response['orderRef']}\r\n";
-				$order_notes  .= "\r\nOutcome {$response['response_msg']}\r\n";
+				$order_notes  .= "\r\nOutcome {$response['responseMessage']}\r\n";
+				$order_notes  .= "\r\nXREF {$response['xref']}\r\n";
 				$order_notes  .= "\r\nA Duplicate count number {$_COOKIE['duplicate_payment_response_count']}.\r\n";
 				$order->add_order_note(__(ucwords($this->method_title) . '- Duplicate Response!' . $order_notes, $this->lang));
+				// Redirect customer to order paid/failed page.
+				$this->redirect($this->get_return_url($order));
 			}
-			// Increase duplicate_payment_response_count by one
+		}
+
+		// Increase duplicate_payment_response_count by one if the inter
+		if ($this->settings['type'] !== 'direct') {
 			setcookie('duplicate_payment_response_count', ($_COOKIE['duplicate_payment_response_count'] + 1), [
 				'expires' => time() + 500,
 				'path' => '/',
@@ -695,8 +715,6 @@ class WC_Blink_Payment extends WC_Payment_Gateway
 				'httponly' => false,
 				'samesite' => 'None'
 			]);
-			// Redirect customer to order paid/failed page.
-			$this->redirect($this->get_return_url($order));
 		}
 
 		// Duplicate check passed. Handle the response.
@@ -707,15 +725,18 @@ class WC_Blink_Payment extends WC_Payment_Gateway
 		}
 
 		// Handle the outcome based on the response code.
-		if ($response['responseCode'] == 0) {
+		if ((int)$response['responseCode'] === 0) {
 
 			$this->debug_log('INFO', "Payment for order {$response['orderRef']} was successful");
 			$this->on_order_success($response);
 		} else if($response['responseCode'] ==  65576){
 			$this->debug_log('INFO', "Payment for order {$response['orderRef']} was cancelled by the customer");
 			$this->process_error('Payment cancelled', $response);
-		} else {
+		}  else if ((int)$response['responseCode'] === 65802) {
 
+			return $this->on_threeds_required($response);
+
+		} else {
 			$this->debug_log('INFO', "Payment for order {$response['orderRef']} failed");
 			$this->process_error('Payment failed', $response);
 		}
@@ -849,7 +870,7 @@ class WC_Blink_Payment extends WC_Payment_Gateway
 			</script>;
 			SCRIPT;
 		} else {
-			wp_redirect($url . '&XDEBUG_SESSION_START');
+			wp_redirect($url);
 		}
 		exit;
 	}
