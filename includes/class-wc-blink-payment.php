@@ -773,15 +773,24 @@ class WC_Blink_Payment extends WC_Payment_Gateway
 			$billing_address .= "\n" . $country;
 			unset($country);
 		}
-
+        //Custom order reference
+		$orderList = "";
+		$orderNumber = count($order->get_items());
+		$i =0;
+		foreach ($order->get_items() as $item) {
+			$orderList .= $item['name']."x".$item['qty'];
+			if ($i < $orderNumber - 1) {
+				$orderList .= "+";
+			}
+		}
 		// Fields for hash
 		$req = array(
 			'action'			  => 'SALE',
 			'merchantID'          => $this->settings['merchantID'],
 			'amount'              => $amount,
 			'currencyCode'        => $order->get_currency(),
-			'transactionUnique'   => uniqid($order->get_order_key() . '-'),
-			'orderRef'            => $order_id,
+			'transactionUnique'   => "wc_order: " . $orderList,
+			'orderRef'            => "BLINK - WooCommerce order: " . $order_id,
 			'customerName'        => $order->get_billing_first_name() . ' ' . $order->get_billing_last_name(),
 			'customerCountryCode' => $order->get_billing_country(),
 			'customerAddress'     => $billing_address,
