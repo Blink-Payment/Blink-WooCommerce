@@ -790,7 +790,7 @@ class WC_Blink_Payment extends WC_Payment_Gateway
 			'amount'              => $amount,
 			'currencyCode'        => $order->get_currency(),
 			'transactionUnique'   => "wc_order: " . $orderList,
-			'orderRef'            => "BLINK - WooCommerce order: " . $order_id,
+			'orderRef'            => $order_id,
 			'customerName'        => $order->get_billing_first_name() . ' ' . $order->get_billing_last_name(),
 			'customerCountryCode' => $order->get_billing_country(),
 			'customerAddress'     => $billing_address,
