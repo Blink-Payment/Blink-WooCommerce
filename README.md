@@ -1,4 +1,5 @@
 Disclaimer: Please note that we no longer support older versions of SDKs and Modules. We recommend that the latest versions are used.
+> **Notice:_**  For the latest integration with WooCommerce, please visit our new repository [here](https://github.com/Blink-Payment/Blink-WooCommerce-v2)
 
 Blink woocommerce plugin
 ==============
